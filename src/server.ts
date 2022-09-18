@@ -1,25 +1,78 @@
-import express, { request, response } from 'express'
+import express from 'express'
+import { PrismaClient } from '@prisma/client'
 
 const app = express()
+const prisma = new PrismaClient()
 
-app.get('/games', (request, response) => {
-  return response.json([])
+//Route to show All Games
+app.get('/games', async (request, response) => {
+  const games = await prisma.game.findMany({
+    include: {
+      _count: {
+        select: {
+          ads: true
+        }
+
+      }
+    }
+  })
+
+
+  return response.json(games)
 })
 
+//Route to show Ads Without Discord information
 app.post('/ads', (request, response) => {
   return response.status(201).json([])
 })
 
-app.get('/games/:id/ads', (request, response) => {
+//Route to show ADs by game ID
+app.get('/games/:id/ads', async (request, response) => {
   const gameId = request.params.id
 
-  return response.send(gameId);
+  const ads = await prisma.aD.findMany({
+    select: {
+      id: true,
+      name: true,
+      weekDays: true,
+      hourStart: true,
+      hourEnd: true,
+      useVoiceChannel: true,
+      yearsPlaying: true
+    },
+    where: {
+      gameId,
+    },
+    orderBy: {
+      createdAt: 'desc'
+    }
+  })
+
+  return response.send(ads.map(ad => {
+    return {
+      ...ad,
+      weekDays: ad.weekDays.split(',')
+    }
+  }));
 })
 
 
-app.get('/ads/:id/discord', (request, response) => {
+app.get('/ads/:id/discord', async (request, response) => {
   const adId = request.params.id
-  return response.json([])
+
+
+  const ads = await prisma.aD.findFirstOrThrow({
+    select: {
+      discord: true
+    },
+    where: {
+      id: adId
+    }
+  })
+
+  return response.json({
+    discord: ads.discord
+  })
 })
 
 app.listen(3333)
